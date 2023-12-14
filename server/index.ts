@@ -1,4 +1,3 @@
-// @ts-nocheck
 import express, { Express, Request, Response } from "express";
 import * as mysql from "mysql2";
 import * as dotenv from "dotenv";
@@ -10,16 +9,18 @@ import {
 } from "@aws-sdk/client-s3";
 import multer from "multer";
 
-import {generateRandomString} from "./utils.ts";
+import { generateRandomString } from "./utils.ts";
 
 interface Patient {
   id?: string;
   firstName: string;
   lastName: string;
   birthday: Date;
+  imageUrl?: string;
+  identifier?: string;
   description: string;
   primaryDoctor: string;
-  imageUrl?: string;
+  image?: File | undefined | Blob;
 }
 
 dotenv.config();
@@ -33,19 +34,19 @@ const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
 
 const s3 = new S3Client({
-  region: "us-east-1",
+  region: process.env.S3_BUCKET || "us-east-1",
   credentials: {
-    accessKeyId: "AKIAUH2DZA2MJXWZXKMU",
-    secretAccessKey: "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",
+    accessKeyId: process.env.ACCESS_KEY_ID || "",
+    secretAccessKey: process.env.SECRET_ACCESS_KEY || "",
   },
 });
 
 const db = mysql.createConnection({
-  host: "database-2.cuvlnhjvzmnk.us-east-1.rds.amazonaws.com",
-  user: "admin",
-  password: "Maham0047",
-  database: "db2",
-  port: 3306,
+  host: process.env.DB_HOST || "localhost",
+  user: process.env.DB_USER || "root",
+  password: process.env.DB_PASSWORD || "password",
+  database: process.env.DB_NAME || "patients",
+  port: process.env.DB_PORT ? parseInt(process.env.DB_PORT) : 3306,
 });
 
 db.connect((err: Error | null) => {
@@ -67,9 +68,9 @@ app.get("/patients", (req: Request, res: Response) => {
           .status(500)
           .json({ error: "Error fetching data from the database" });
       } else {
-        const patientsWithImageUrls = results.map((patient) => {
+        const patientsWithImageUrls = results?.map((patient) => {
           if (!patient.identifier) return { ...patient, imageUrl: "" };
-          const imageUrl = `https://mydb2bucketsystem.s3.amazonaws.com/${patient.identifier}`;
+          const imageUrl = `${process.env.S3_BUCKET_URL}${patient.identifier}`;
           return { ...patient, imageUrl };
         });
         res.status(200).json(patientsWithImageUrls);
@@ -91,12 +92,14 @@ app.get("/patients/:id", (req: Request<{ id: string }>, res: Response) => {
           .json({ error: "Error fetching data from the database" });
       } else {
         const patient = results ? results[0] : null;
-        if (patient && patient.identifier) {
-          patient.imageUrl = `https://mydb2bucketsystem.s3.amazonaws.com/${patient.identifier}`;
-        } else {
-          patient.imageUrl = "";
+        if (patient) {
+          if (patient.identifier) {
+            patient.imageUrl = `${process.env.S3_BUCKET_URL}${patient.identifier}`;
+          } else {
+            patient.imageUrl = "";
+          }
+          res.status(200).json(patient);
         }
-        res.status(200).json(patient);
       }
     }
   );
@@ -109,8 +112,12 @@ app.post(
     const { firstName, lastName, birthday, description, primaryDoctor } =
       req.body;
     const identifier = generateRandomString(10);
+    if (!req?.file) {
+      return res.status(400).json({ error: "No file uploaded" });
+    }
+    const bucketName = process.env.S3_BUCKET_NAME;
     const params = {
-      Bucket: "mydb2bucketsystem",
+      Bucket: bucketName,
       Key: identifier,
       Body: req.file.buffer,
       ContentType: req.file.mimetype,
@@ -147,85 +154,107 @@ app.post(
 );
 
 // PUT route for updating patient information
-app.put("/patients/:id", upload.single("image"), (req, res) => {
-  const { firstName, lastName, birthday, description, primaryDoctor } =
-    req.body;
-  const parsedBirthday =
-    typeof birthday === "string" ? new Date(birthday) : birthday;
+app.put(
+  "/patients/:id",
+  upload.single("image"),
+  (req: Request<{ id: string }>, res: Response) => {
+    const { firstName, lastName, birthday, description, primaryDoctor } =
+      req.body;
+    const parsedBirthday =
+      typeof birthday === "string" ? new Date(birthday) : birthday;
 
-  if (!(parsedBirthday instanceof Date && !isNaN(parsedBirthday.getTime()))) {
-    return res.status(400).json({ error: "Invalid birthday format" });
-  }
+    if (!(parsedBirthday instanceof Date && !isNaN(parsedBirthday.getTime()))) {
+      return res.status(400).json({ error: "Invalid birthday format" });
+    }
 
-  // Retrieve the current file identifier from the database
-  db.query(
-    "SELECT identifier FROM patients WHERE id = ?",
-    [req.params.id],
-    (err, results) => {
-      if (err) {
-        return res
-          .status(500)
-          .json({ error: "Error retrieving current file identifier", err });
-      }
+    // Retrieve the current file identifier from the database
+    db.query(
+      "SELECT identifier FROM patients WHERE id = ?",
+      [req.params.id],
+      (err, results) => {
+        if (err) {
+          return res
+            .status(500)
+            .json({ error: "Error retrieving current file identifier", err });
+        }
 
-      const currentIdentifier = results[0]?.identifier;
+        const parsedResults: { identifier: string }[] = results as {
+          identifier: string;
+        }[];
 
-      if (req.file) {
-        const identifier = generateRandomString(10);
-        const params = {
-          Bucket: "mydb2bucketsystem",
-          Key: identifier,
-          Body: req.file.buffer,
-          ContentType: req.file.mimetype,
-        };
+        const currentIdentifier = parsedResults?.[0]?.identifier;
 
-        s3.send(new PutObjectCommand(params), (err) => {
-          if (err) {
-            console.log(err);
-            return res
-              .status(500)
-              .json({ error: "Error uploading file to S3", err });
-          }
+        if (req.file) {
+          const identifier = generateRandomString(10);
+          const bucketName = process.env.S3_BUCKET_NAME;
+          const params = {
+            Bucket: bucketName,
+            Key: identifier,
+            Body: req.file.buffer,
+            ContentType: req.file.mimetype,
+          };
 
+          s3.send(new PutObjectCommand(params), (err) => {
+            if (err) {
+              console.log(err);
+              return res
+                .status(500)
+                .json({ error: "Error uploading file to S3", err });
+            }
+
+            updateDatabase(
+              req,
+              res,
+              identifier,
+              {
+                firstName,
+                lastName,
+                birthday: parsedBirthday,
+                description,
+                primaryDoctor,
+              },
+              currentIdentifier
+            );
+          });
+        } else {
           updateDatabase(
             req,
             res,
-            identifier,
-            { firstName, lastName, parsedBirthday, description, primaryDoctor },
+            "",
+            {
+              firstName,
+              lastName,
+              birthday: parsedBirthday,
+              description,
+              primaryDoctor,
+            },
             currentIdentifier
           );
-        });
-      } else {
-        updateDatabase(
-          req,
-          res,
-          null,
-          { firstName, lastName, parsedBirthday, description, primaryDoctor },
-          currentIdentifier
-        );
+        }
       }
-    }
-  );
-});
-function deleteFileFromS3(fileIdentifier) {
+    );
+  }
+);
+function deleteFileFromS3(fileIdentifier: string) {
+  const bucketName = process.env.S3_BUCKET_NAME;
   const deleteParams = {
-    Bucket: "mydb2bucketsystem",
+    Bucket: bucketName,
     Key: fileIdentifier,
   };
   s3.send(new DeleteObjectCommand(deleteParams), (err) => {
     if (err) {
-      console.log("Error deleting file from S3:", err);
+      // console.log("Error deleting file from S3");
     }
   });
 }
 
 // Function to update the database
 function updateDatabase(
-  req,
-  res,
-  newFileIdentifier,
-  patientData,
-  oldFileIdentifier
+  req: Request<{ id: string }>,
+  res: Response,
+  newFileIdentifier: string,
+  patientData: Patient,
+  oldFileIdentifier: string
 ) {
   const query =
     "UPDATE patients SET firstName = ?, lastName = ?, birthday = ?, description = ?, primaryDoctor = ?, identifier = ? WHERE id = ?";
@@ -234,7 +263,7 @@ function updateDatabase(
     [
       patientData.firstName,
       patientData.lastName,
-      patientData.parsedBirthday,
+      patientData.birthday,
       patientData.description,
       patientData.primaryDoctor,
       newFileIdentifier || oldFileIdentifier,
@@ -261,12 +290,16 @@ app.delete("/patients/:id", (req, res) => {
   const getFileIdentifierQuery = "SELECT identifier FROM patients WHERE id = ?";
   db.query(getFileIdentifierQuery, [req.params.id], (err, results) => {
     if (err) {
-      return res
-        .status(500)
-        .json({ error: "Error retrieving file identifier from the database" });
+      return res.status(500).json({
+        error: "Error retrieving file identifier from the database",
+      });
     }
 
-    const fileIdentifier = results[0]?.identifier;
+    const parsedResults: { identifier: string }[] = results as {
+      identifier: string;
+    }[];
+
+    const fileIdentifier = parsedResults?.[0]?.identifier;
 
     // Function to delete the patient record from the database
     const deletePatientRecord = () => {

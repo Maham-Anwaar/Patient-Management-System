@@ -6,4 +6,3 @@ export function generateRandomString(length: number) {
     .toString("hex")
     .slice(0, length);
 }
-

@@ -298,7 +298,13 @@ const Home = () => {
                 flexDirection: 'column',
               }}
             >
-              <input accept="image/*" id="image-upload-input" type="file" required={true} onChange={handleFileChange} />
+              <input
+                accept="image/*"
+                id="image-upload-input"
+                type="file"
+                required={mode === 'Edit' ? false : true}
+                onChange={handleFileChange}
+              />
               {selectedRow?.identifier && (
                 <p>
                   {' '}
