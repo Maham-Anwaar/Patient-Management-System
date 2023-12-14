@@ -9,7 +9,8 @@ import {
   DeleteObjectCommand,
 } from "@aws-sdk/client-s3";
 import multer from "multer";
-import crypto from "crypto";
+
+import {generateRandomString} from "./utils.ts";
 
 interface Patient {
   id?: string;
@@ -30,13 +31,6 @@ app.use(cors());
 
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
-
-function generateRandomString(length) {
-  return crypto
-    .randomBytes(Math.ceil(length / 2))
-    .toString("hex")
-    .slice(0, length);
-}
 
 const s3 = new S3Client({
   region: "us-east-1",
@@ -142,12 +136,10 @@ app.post(
             .status(500)
             .json({ error: "Error adding data to the database", err });
         } else {
-          res
-            .status(201)
-            .json({
-              message: "Patient added successfully",
-              patientId: (result as mysql.ResultSetHeader).insertId,
-            });
+          res.status(201).json({
+            message: "Patient added successfully",
+            patientId: (result as mysql.ResultSetHeader).insertId,
+          });
         }
       }
     );
