@@ -167,7 +167,6 @@ app.put(
       return res.status(400).json({ error: "Invalid birthday format" });
     }
 
-    // Retrieve the current file identifier from the database
     db.query(
       "SELECT identifier FROM patients WHERE id = ?",
       [req.params.id],
@@ -248,7 +247,6 @@ function deleteFileFromS3(fileIdentifier: string) {
   });
 }
 
-// Function to update the database
 function updateDatabase(
   req: Request<{ id: string }>,
   res: Response,
@@ -286,7 +284,6 @@ function updateDatabase(
 }
 
 app.delete("/patients/:id", (req, res) => {
-  // First, retrieve the file identifier associated with the patient
   const getFileIdentifierQuery = "SELECT identifier FROM patients WHERE id = ?";
   db.query(getFileIdentifierQuery, [req.params.id], (err, results) => {
     if (err) {
