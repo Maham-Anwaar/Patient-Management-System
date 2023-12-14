@@ -30,6 +30,7 @@ And then to start the server run
 ```
 npm start
 ```
+Also, create a .env file in your server directory and ask the author for all the keys.
 
 ### Client
 Run the following commands
