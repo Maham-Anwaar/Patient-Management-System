@@ -1,0 +1,61 @@
+{
+  "name": "demo-management-system-master",
+  "version": "1.0.0",
+  "description": "Demo for management system",
+  "license": "MIT",
+  "author": "Maham Anwar",
+  "keywords": [
+    "react",
+    "boilerplate",
+    "typescript",
+    "starter",
+    "vite",
+    "redux",
+    "material-ui",
+    "rrd",
+    "prettier"
+  ],
+  "scripts": {
+    "dev": "vite --open",
+    "start": "vite --open",
+    "host": "vite --open --host",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "lint": "eslint src --ext .js,.jsx,.ts,.tsx",
+    "lint:fix": "eslint src --ext .js,.jsx,.ts,.tsx --fix",
+    "format": "prettier \"src/**/*.{js,jsx,ts,tsx,css,scss}\" --write"
+  },
+  "dependencies": {
+    "@emotion/react": "^11.11.1",
+    "@emotion/styled": "^11.11.0",
+    "@mui/icons-material": "^5.14.19",
+    "@mui/material": "^5.14.20",
+    "@mui/system": "^5.15.0",
+    "@mui/x-data-grid": "^6.18.4",
+    "@mui/x-date-pickers": "^6.18.4",
+    "@reduxjs/toolkit": "^2.0.1",
+    "axios": "^1.6.2",
+    "dayjs": "^1.11.10",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-redux": "^9.0.3",
+    "react-router-dom": "^6.20.1"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.23.5",
+    "@types/react": "^18.2.43",
+    "@types/react-dom": "^18.2.17",
+    "@typescript-eslint/eslint-plugin": "^6.13.2",
+    "@typescript-eslint/parser": "^6.13.2",
+    "@vitejs/plugin-react-swc": "^3.5.0",
+    "eslint": "^8.55.0",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-import": "^2.29.0",
+    "eslint-plugin-promise": "^6.1.1",
+    "eslint-plugin-react": "^7.33.2",
+    "prettier": "^3.1.1",
+    "typescript": "^5.3.3",
+    "vite": "^5.0.7",
+    "vitest": "^1.0.4"
+  }
+}
